@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>言語ギャップ・翻訳不可能語クイズ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+*:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+.choice-btn { transition: all 0.2s; }
+.choice-btn.correct { background-color: #166534; border-color: #22c55e; color: #bbf7d0; }
+.choice-btn.wrong { background-color: #7f1d1d; border-color: #ef4444; color: #fecaca; }
+.shake { animation: shake 0.4s; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+.reveal { animation: reveal 0.5s cubic-bezier(.4,0,.2,1); }
+@keyframes reveal { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen p-4">
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold mb-1 text-amber-400">言語ギャップ・翻訳不可能語クイズ</h1>
+  <p class="text-gray-400 text-sm mb-6">世界中の「他の言語に翻訳できない」言葉の意味を当てよう</p>
+
+  <div id="startScreen">
+    <div class="bg-gray-900 rounded-xl p-6 mb-4">
+      <h2 class="text-lg font-semibold mb-4 text-gray-200">クイズ設定</h2>
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">難易度・出題範囲</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button class="mode-btn bg-amber-800 border border-amber-600 rounded-lg px-4 py-2 text-sm font-medium active-mode" data-mode="all" onclick="setMode(this)">全言語ランダム</button>
+          <button class="mode-btn bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-medium hover:border-amber-700" data-mode="asian" onclick="setMode(this)">アジア語圏</button>
+          <button class="mode-btn bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-medium hover:border-amber-700" data-mode="european" onclick="setMode(this)">ヨーロッパ語圏</button>
+          <button class="mode-btn bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-medium hover:border-amber-700" data-mode="emotion" onclick="setMode(this)">感情・心理系</button>
+        </div>
+      </div>
+      <div id="highScoreInfo" class="text-sm text-gray-400 mb-4"></div>
+      <button onclick="startQuiz()" class="w-full bg-amber-600 hover:bg-amber-500 py-3 rounded-xl font-semibold text-lg transition-colors">クイズ開始</button>
+    </div>
+  </div>
+
+  <div id="quizScreen" class="hidden">
+    <div class="flex justify-between items-center mb-4">
+      <div class="text-sm text-gray-400">問題 <span id="qNum">1</span>/10</div>
+      <div class="text-sm font-bold text-amber-400">スコア: <span id="scoreDisp">0</span></div>
+      <div class="text-sm text-gray-400">ハイスコア: <span id="hiScore">0</span></div>
+    </div>
+    <div class="h-2 bg-gray-800 rounded-full mb-6">
+      <div id="progressBar" class="h-full bg-amber-500 rounded-full transition-all duration-300" style="width:0%"></div>
+    </div>
+
+    <div class="bg-gray-900 rounded-xl p-6 mb-4">
+      <div class="flex items-start gap-3 mb-4">
+        <div id="langBadge" class="shrink-0 bg-amber-900 border border-amber-700 rounded-lg px-3 py-1 text-xs font-semibold text-amber-300"></div>
+        <div>
+          <div id="questionWord" class="text-3xl font-bold text-white mb-1"></div>
+          <div id="questionRomaji" class="text-sm text-gray-400 italic"></div>
+        </div>
+      </div>
+      <p class="text-sm text-gray-400">この言葉の意味は？</p>
+    </div>
+
+    <div id="choicesArea" class="grid grid-cols-1 gap-3 mb-4"></div>
+
+    <div id="answerCard" class="hidden reveal bg-gray-900 rounded-xl p-5 mb-4">
+      <div id="answerHeader" class="font-bold text-lg mb-2"></div>
+      <p id="answerMeaning" class="text-sm text-gray-200 mb-3"></p>
+      <div class="border-t border-gray-700 pt-3">
+        <div class="text-xs text-amber-400 mb-1">文化的背景</div>
+        <p id="answerContext" class="text-xs text-gray-300"></p>
+      </div>
+      <div class="border-t border-gray-700 pt-3 mt-3">
+        <div class="text-xs text-gray-500 mb-1">使用例</div>
+        <p id="answerExample" class="text-xs text-gray-400 italic"></p>
+      </div>
+      <button onclick="nextQuestion()" class="mt-4 w-full bg-amber-700 hover:bg-amber-600 py-2 rounded-lg text-sm font-medium transition-colors">次の問題</button>
+    </div>
+  </div>
+
+  <div id="resultScreen" class="hidden">
+    <div class="bg-gray-900 rounded-xl p-6 text-center">
+      <div class="text-5xl mb-3" id="resultEmoji"></div>
+      <div class="text-2xl font-bold text-amber-400 mb-1"><span id="finalScore">0</span>/10</div>
+      <div class="text-gray-400 text-sm mb-4" id="resultMsg"></div>
+      <div id="newHiScore" class="hidden text-green-400 font-bold mb-4">NEW ハイスコア!</div>
+      <button onclick="restartQuiz()" class="w-full bg-amber-600 hover:bg-amber-500 py-3 rounded-xl font-semibold transition-colors">もう一度</button>
+      <button onclick="backToStart()" class="w-full mt-2 bg-gray-700 hover:bg-gray-600 py-2 rounded-xl text-sm transition-colors">設定に戻る</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const WORDS = [
+  {lang:'日本語',region:'asian',cat:'emotion',word:'木漏れ日',romaji:'Komorebi',meaning:'木の葉の隙間から差し込む陽光',context:'日本語には自然現象に細やかな詩情を見出す文化があり、この言葉もその表れ。光と影の織り成す美しい瞬間を一語で捉える。',example:'森を歩いていると、木漏れ日が地面にゆらゆらと揺れていた。',choices:['木の葉が落ちる音','木の葉の隙間から差し込む陽光','森の中の霧','川面に映る木々']},
+  {lang:'日本語',region:'asian',cat:'emotion',word:'物の哀れ',romaji:'Mono no Aware',meaning:'物事のはかなさを感じる、甘く切ない感情',context:'平安時代から続く日本の美的概念。桜の散りゆく様に美を見出すような、はかなさへの感受性。',example:'散る桜を見て、物の哀れを感じた。',choices:['怒りを抑える感情','物事のはかなさを感じる甘く切ない感情','懐かしさで胸が痛む感覚','他人の不幸に喜ぶ気持ち']},
+  {lang:'日本語',region:'asian',cat:'emotion',word:'木枯らし',romaji:'Kogarashi',meaning:'晩秋から初冬にかけて吹く冷たく強い風',context:'「木を枯らす風」の意。日本語には季節の移り変わりを細かく表す言葉が豊富で、この語も初冬の訪れを告げる詩的な表現。',example:'木枯らし一号が吹いて、冬の始まりを感じた。',choices:['春の生暖かい風','晩秋から初冬にかけて吹く冷たく強い風','梅雨の時期の霧雨','夏の夜に吹く涼しい風']},
+  {lang:'日本語',region:'asian',cat:'emotion',word:'侘び寂び',romaji:'Wabi-Sabi',meaning:'不完全・はかなさ・未完成の中に美を見出す概念',context:'禅の影響を受けた日本の美意識。欠けた茶碗や古びた木の美しさを愛でる心。西洋の「完璧な美」とは対極にある。',example:'この古民家の侘び寂びのある佇まいが好きだ。',choices:['完璧で豪華な美しさ','不完全・はかなさの中に見出す美','自然の壮大さへの畏敬','共同体の和を重んじる心']},
+  {lang:'ポルトガル語',region:'european',cat:'emotion',word:'Saudade',romaji:'サウダーデ',meaning:'離れた人・場所・時代への深い懐かしさと切ない恋しさ',context:'ポルトガル人のアイデンティティの核心にある感情。ファドという音楽のテーマでもあり、単なる「懐かしさ」を超えた複雑な感情。',example:'幼少期を過ごした故郷への言いようのないサウダーデを感じる。',choices:['突然の嬉しい知らせへの喜び','離れた人・場所への深い懐かしさと切ない恋しさ','旅に出たいという衝動','家族への誇り']},
+  {lang:'ドイツ語',region:'european',cat:'emotion',word:'Schadenfreude',romaji:'シャーデンフロイデ',meaning:'他人の不幸・失敗を見て感じる喜び',context:'「Schaden（損害）+ Freude（喜び）」の合成語。英語にも借用されるほど普遍的な感情だが、ドイツ語だけがこれを一語で表す。',example:'ライバルが転んだとき、少しシャーデンフロイデを感じてしまった。',choices:['他人の成功を心から祝う気持ち','他人の不幸・失敗を見て感じる喜び','困難を乗り越えた達成感','旧友との再会の喜び']},
+  {lang:'ドイツ語',region:'european',cat:'emotion',word:'Weltschmerz',romaji:'ヴェルトシュメルツ',meaning:'現実の世界が理想と程遠いことへの深い悲しみと苦痛',context:'「Welt（世界）+ Schmerz（痛み）」の合成語。ロマン主義時代に生まれた概念で、世界の不完全さへの根本的な失望感。',example:'ニュースを見るたびにヴェルトシュメルツを感じる。',choices:['故郷への恋しさ','現実の世界が理想と程遠いことへの深い悲しみ','旅に出たいという衝動','孤独の心地よさ']},
+  {lang:'ドイツ語',region:'european',cat:'emotion',word:'Fernweh',romaji:'フェルンヴェー',meaning:'遠い土地へ旅に出たい、外へ出たいという強い衝動',context:'「Fern（遠い）+ Weh（痛み・恋しさ）」の合成語。Heimweh（ホームシック）の対義語で、見知らぬ地への憧れ。',example:'毎春になるとフェルンヴェーに駆られて旅に出てしまう。',choices:['家に帰りたい気持ち','遠い土地へ旅に出たいという強い衝動','懐かしい音楽を聴く喜び','完璧な瞬間が消える切なさ']},
+  {lang:'デンマーク語',region:'european',cat:'emotion',word:'Hygge',romaji:'ヒュッゲ',meaning:'居心地よく心温まる時間・仲間と過ごす心地よさ',context:'デンマーク・北欧の幸福概念。冬の長い北欧で発達した、キャンドルの灯りと共に過ごす温かなひとときの文化。',example:'友人と集まってヒュッゲな夕べを過ごした。',choices:['厳しい規律で自己を鍛える習慣','居心地よく心温まる時間・仲間と過ごす心地よさ','孤独の中で創造力を高める時間','自然の中で瞑想する体験']},
+  {lang:'スウェーデン語',region:'european',cat:'emotion',word:'Lagom',romaji:'ラーゴム',meaning:'多すぎず少なすぎず、ちょうどよい加減・適度さ',context:'スウェーデン社会の中心的価値観。バイキングが囲炉裏を囲んで酒を「lag om」（チームで回す）と分け合ったことが語源とも。',example:'コーヒーの量はラーゴムがいい。',choices:['圧倒的な豊かさへの喜び','多すぎず少なすぎずちょうどよい加減','極限まで努力する姿勢','冬の寒さへの敬意']},
+  {lang:'ロシア語',region:'european',cat:'emotion',word:'Toska',romaji:'トスカ',meaning:'魂の奥底からの渇望・漠然とした憂鬱と切望',context:'ナボコフが「英語に翻訳不可能」と評した語。大地の広大さと歴史的苦難が生み出した、ロシア特有の深い哀愁。',example:'夕暮れ時の川を眺めながら、言いようのないトスカを感じた。',choices:['喜びが溢れる状態','魂の奥底からの渇望・漠然とした憂鬱と切望','他者を助けたいという衝動','過去の栄光への誇り']},
+  {lang:'ヒンディー語',region:'asian',cat:'emotion',word:'Jugaad',romaji:'ジュガード',meaning:'限られたリソースで創意工夫して問題を解決する精神',context:'インドのイノベーション哲学。「足りないものがあっても工夫する」というマインドセットで、シリコンバレーでも注目される概念。',example:'ジュガードの精神で、古いバイクを農業機械に改造した。',choices:['神への祈りで困難を乗り越える信仰','限られたリソースで創意工夫して問題を解決する精神','家族全員で助け合う義務感','瞑想による内なる平和']},
+  {lang:'韓国語',region:'asian',cat:'emotion',word:'한(恨)',romaji:'ハン',meaning:'長年の抑圧・悲嘆から生まれた深い憤りと諦め混じりの悲しみ',context:'韓国人のアイデンティティに深く根ざした感情。植民地時代の経験も含む集合的な悲しみで、K-POPや映画にも通底している。',example:'この映画には、民族の恨が色濃く表れている。',choices:['喜びを全力で表現する文化','長年の抑圧・悲嘆から生まれた深い憤りと悲しみ','自分より他者を優先する美徳','目上の人への絶対的な敬意']},
+  {lang:'韓国語',region:'asian',cat:'emotion',word:'눈치',romaji:'ヌンチ',meaning:'場の空気・他者の感情を素早く読み取る能力',context:'韓国の対人関係において非常に重視されるスキル。「目で察する」という意味で、直接言わずとも場を読む知性。',example:'彼女は눈치があるから、いつも場の空気をよく読む。',choices:['敵に対する勇敢な挑戦','場の空気・他者の感情を素早く読み取る能力','美味しいものを見分ける舌','長時間働く忍耐力']},
+  {lang:'アラビア語',region:'asian',cat:'emotion',word:'Ya\'aburnee',romaji:'ヤアブルニー',meaning:'「あなたより先に死にたい」＝あなたを失いたくないほど愛している',context:'直訳すると「あなたが私を埋葬してくれますように」。愛する人を失う悲しみを想像できないほど深く愛しているという究極の愛情表現。',example:'母が子に「ياعبرني」と言うのは、最大の愛情表現。',choices:['神への感謝の祈り','あなたより先に死にたいほど愛している','旅の安全を願うこと','戦士への敬意']},
+  {lang:'ギリシャ語',region:'european',cat:'emotion',word:'Meraki',romaji:'メラキ',meaning:'魂・創造性・愛情を込めて何かをすること',context:'「何かをするとき、自分の魂の一部を注ぎ込む」という意味。ギリシャ文化における芸術・料理・仕事への情熱的な取り組みを表す。',example:'彼の料理にはメラキが感じられる。',choices:['哲学的な議論への情熱','魂・創造性・愛情を込めて何かをすること','友人への義務感','神話への畏敬']},
+  {lang:'ギリシャ語',region:'european',cat:'emotion',word:'Philotimo',romaji:'フィロティモ',meaning:'名誉・尊厳・他者への敬意を重んじる人生哲学',context:'「友（filo）+ 名誉（timo）」。ギリシャ人の最も誇りとする概念で、家族・友人・見知らぬ人への無条件のもてなしと敬意を含む。',example:'フィロティモの精神で、見知らぬ旅人に食事を振る舞った。',choices:['哲学的な真理の探求','名誉・尊厳・他者への敬意を重んじる人生哲学','海への畏敬と冒険心','芸術の完璧さを追求する姿勢']},
+  {lang:'インドネシア語',region:'asian',cat:'emotion',word:'Jayus',romaji:'ジャユス',meaning:'あまりにもつまらないジョークが逆に面白い状態',context:'インドネシア語のユニークなコンセプト。「滑りすぎて笑えない」ジョークを言った人を指すが、その結果として全員が笑ってしまうという逆説的な可笑しさ。',example:'彼のジョークはいつもジャユスで、逆に場が和む。',choices:['とても面白いジョーク','あまりにもつまらないジョークが逆に面白い状態','子供の無邪気な笑い','皮肉が効いた鋭い批評']},
+  {lang:'フィンランド語',region:'european',cat:'emotion',word:'Sisu',romaji:'シス',meaning:'逆境の中でも諦めない内なる強さ・不屈の精神',context:'フィンランドの国民的概念。厳しい冬や歴史的試練を乗り越えてきたフィンランド人の精神的な核。単なる「根性」を超えた、魂の強さ。',example:'シスの精神で、氷点下の中でもランニングを続けた。',choices:['温かい家族との絆','逆境の中でも諦めない内なる強さ・不屈の精神','美しい自然への感謝','サウナで心身を清める儀式']},
+  {lang:'ヨルバ語',region:'asian',cat:'emotion',word:'Oju Inu',romaji:'オジュ・イヌ',meaning:'「内なる目」＝直感・洞察力・精神的な知覚',context:'西アフリカ（ナイジェリア等）のヨルバ族の概念。物理的に見えないものを感知する内なる目で、精神的な知恵や直感を指す。',example:'彼は오주 이누が優れていて、嘘をすぐ見抜く。',choices:['外見の美しさへの執着','内なる目＝直感・洞察力・精神的な知覚','先祖への祈り','共同体の掟を守る義務']},
+  {lang:'チェコ語',region:'european',cat:'emotion',word:'Litost',romaji:'リトスト',meaning:'自分の惨めさへの自覚から生まれる、相手を道連れにしたい衝動',context:'ミラン・クンデラが著書で解説した概念。「苦悩と復讐心が混じった状態」。自分の失敗を見せられた怒りと恥の複合体。',example:'試験に落ちたとき、成功した友人へのリトストを感じた。',choices:['過去を懐かしむ純粋な感情','自分の惨めさへの自覚から生まれる相手を道連れにしたい衝動','音楽の美しさに感動する体験','困難な仕事を黙々とこなす誇り']},
+  {lang:'ジョージア語',region:'european',cat:'emotion',word:'Shemomedjamo',romaji:'シェモメジャモ',meaning:'お腹がいっぱいなのについ食べ続けてしまうこと',context:'直訳すると「私は偶然それを食べてしまった」。ジョージア料理の豊かさと食卓文化が生んだ言葉で、意志に反して止まれない食欲を表す。',example:'シェモメジャモ——気づいたらケーキを丸ごと食べていた。',choices:['新しい料理を発明する喜び','お腹がいっぱいなのについ食べ続けてしまうこと','食事を皆で分かち合う文化','食材への感謝の祈り']},
+  {lang:'スワヒリ語',region:'asian',cat:'emotion',word:'Ubuntu',romaji:'ウブントゥ',meaning:'「私は他者を通じて存在する」＝人間の相互依存・共同体精神',context:'南アフリカ由来の哲学。「私があなたの中にあり、あなたが私の中にある」という共同体の精神性で、マンデラも引用した概念。',example:'ウブントゥの精神で、困っている人を助けるのは当然のことだ。',choices:['個人の力で世界を変える使命感','私は他者を通じて存在する＝人間の相互依存・共同体精神','自然との調和を保つ規律','先祖の知恵を学ぶ儀式']},
+  {lang:'タガログ語',region:'asian',cat:'emotion',word:'Gigil',romaji:'ギギル',meaning:'可愛すぎるものを見たとき押しつぶしたくなるほどの衝動',context:'フィリピンのタガログ語の独特な概念。日本語の「むにむにしたい」に似た、過度の可愛さへの反応。英語では「cute aggression」として研究されている。',example:'赤ちゃんを見てギギルが止まらなかった。',choices:['怒りを我慢する忍耐力','可愛すぎるものを見たとき押しつぶしたくなる衝動','親への尊敬と奉仕','伝統的な踊りへの情熱']},
+  {lang:'マレー語',region:'asian',cat:'emotion',word:'Manja',romaji:'マンジャ',meaning:'愛情を求めて甘える・依存する心地よい行動',context:'マレーシア・インドネシアで使われる言葉。子供が親に甘えたり、恋人同士が互いにべったりする愛情深い依存関係を表す。',example:'彼女はいつもマンジャで、恋人に寄り添っている。',choices:['独立心と自立への誇り','愛情を求めて甘える・依存する心地よい行動','困難に立ち向かう勇気','伝統的な礼儀への敬意']},
+  {lang:'スペイン語',region:'european',cat:'emotion',word:'Duende',romaji:'ドゥエンデ',meaning:'芸術が引き起こす魂を揺さぶるような深い感情・神秘的な力',context:'フラメンコやスペイン詩に関わる概念。ロルカが「暗い音の川」と表現した、芸術が持つ霊的・超自然的な感情喚起力。',example:'彼女のフラメンコにはドゥエンデがあった——鳥肌が立った。',choices:['技術的な完璧さへの追求','芸術が引き起こす魂を揺さぶる深い感情・神秘的な力','伝統への無条件の服従','快楽を追い求める哲学']},
+  {lang:'中国語',region:'asian',cat:'emotion',word:'缘分（縁分）',romaji:'ユェンフェン',meaning:'運命的なつながり・出会いをもたらす見えない力',context:'仏教・道教的世界観に基づく中国の概念。偶然の出会いも全て「縁」によるものという運命論的な考え方。日本語の「縁」に近いが、より強い宿命感を持つ。',example:'初めて会った気がしないのは、きっと缘分があるからだ。',choices:['努力で運命を切り開く意志','運命的なつながり・出会いをもたらす見えない力','家族の絆を守る義務','先祖への敬意と祭祀']},
+  {lang:'ベンガル語',region:'asian',cat:'emotion',word:'Abosar',romaji:'アボシャル',meaning:'仕事を終えた後の心地よい疲れと解放感',context:'バングラデシュ・インド西ベンガル州で使われる言葉。一日の労働を終えた充実した疲労感と、それに伴う穏やかな満足感。',example:'夕方、アボシャルを感じながらお茶を飲んだ。',choices:['朝の清々しい活力','仕事を終えた後の心地よい疲れと解放感','試験に合格した興奮','旅の始まりのわくわく感']},
+  {lang:'ヒンディー語',region:'asian',cat:'emotion',word:'Atithi Devo Bhava',romaji:'アティティ デヴォ バヴァ',meaning:'「客人は神である」＝訪問者を神様として扱うおもてなし精神',context:'サンスクリット語由来のインドの哲学。ヴェーダの教えに基づき、見知らぬ人さえも神の化身として最高のもてなしをする文化的義務。',example:'アティティ デヴォ バヴァの精神で、旅人に自分の食事を分け与えた。',choices:['厳しい修行で悟りを開く方法','客人は神である＝訪問者を神様として扱うおもてなし精神','家族の名誉を守る義務','輪廻転生からの解脱']},
+  {lang:'日本語',region:'asian',cat:'emotion',word:'積ん読',romaji:'Tsundoku',meaning:'本を買うが読まずに積み上げたままにすること',context:'「積む + 読（書）」の造語。日本の読書文化と、蔵書欲が消費意欲を上回る現象を表す。蔵書の山が不安より安心をもたらす独特の感覚。',example:'部屋には積ん読の本が山積みになっている。',choices:['本を読み終えた後の達成感','本を買うが読まずに積み上げたままにすること','古本屋でお宝を見つける喜び','図書館で静かに読書する時間']},
+  {lang:'日本語',region:'asian',cat:'emotion',word:'木工事',romaji:'Natsukashii',meaning:'懐かしさ・過去への甘い郷愁と少しの切なさ',context:'単なる「懐かしい」を超えた感情。再会した喜びと失ったものへの切なさが混ざり合った複雑な感覚で、英語のnostalgiaとは微妙に異なる。',example:'幼い頃のアルバムを見て、なつかしいと感じた。',choices:['未来への期待と興奮','懐かしさ・過去への甘い郷愁と少しの切なさ','初めての体験への驚き','困難を乗り越えた誇り']},
+];
+
+let currentMode = 'all';
+let currentQuiz = [];
+let currentIdx = 0;
+let currentScore = 0;
+function htmlEscape(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let answered = false;
+let seenWords = new Set(JSON.parse(localStorage.getItem('lq_seen') || '[]'));
+
+function setMode(btn) {
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.remove('bg-amber-800', 'border-amber-600');
+    b.classList.add('bg-gray-800', 'border-gray-700');
+  });
+  btn.classList.remove('bg-gray-800', 'border-gray-700');
+  btn.classList.add('bg-amber-800', 'border-amber-600');
+  currentMode = btn.dataset.mode;
+  updateHiScore();
+}
+
+function updateHiScore() {
+  const hi = localStorage.getItem('lq_hi_' + currentMode) || 0;
+  document.getElementById('highScoreInfo').textContent = `ハイスコア: ${hi}/10`;
+}
+
+function getPool() {
+  let pool = WORDS;
+  if (currentMode === 'asian') pool = WORDS.filter(w => w.region === 'asian');
+  else if (currentMode === 'european') pool = WORDS.filter(w => w.region === 'european');
+  else if (currentMode === 'emotion') pool = WORDS.filter(w => w.cat === 'emotion');
+  if (pool.length < 10) pool = WORDS;
+  const unseen = pool.filter(w => !seenWords.has(w.word));
+  if (unseen.length < 10) {
+    seenWords.clear();
+    localStorage.setItem('lq_seen', '[]');
+    return pool;
+  }
+  return unseen;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startQuiz() {
+  const pool = getPool();
+  currentQuiz = shuffle(pool).slice(0, 10);
+  currentIdx = 0;
+  currentScore = 0;
+  answered = false;
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('resultScreen').classList.add('hidden');
+  document.getElementById('quizScreen').classList.remove('hidden');
+  const hi = localStorage.getItem('lq_hi_' + currentMode) || 0;
+  document.getElementById('hiScore').textContent = hi;
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = currentQuiz[currentIdx];
+  answered = false;
+  document.getElementById('qNum').textContent = currentIdx + 1;
+  document.getElementById('scoreDisp').textContent = currentScore;
+  document.getElementById('progressBar').style.width = (currentIdx / 10 * 100) + '%';
+  document.getElementById('langBadge').textContent = q.lang;
+  document.getElementById('questionWord').textContent = q.word;
+  document.getElementById('questionRomaji').textContent = q.romaji;
+  document.getElementById('answerCard').classList.add('hidden');
+
+  const choices = document.getElementById('choicesArea');
+  choices.innerHTML = '';
+  q.choices.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn w-full text-left bg-gray-800 border border-gray-700 hover:border-amber-600 rounded-xl px-4 py-3 text-sm transition-all';
+    btn.textContent = c;
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('tabindex', '0');
+    btn.onclick = () => selectAnswer(i, q);
+    choices.appendChild(btn);
+  });
+}
+
+function selectAnswer(idx, q) {
+  if (answered) return;
+  answered = true;
+  const correctIdx = q.choices.indexOf(q.meaning);
+  const btns = document.querySelectorAll('.choice-btn');
+  btns.forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === correctIdx) btn.classList.add('correct');
+    else if (i === idx && idx !== correctIdx) { btn.classList.add('wrong'); btn.classList.add('shake'); }
+  });
+
+  if (idx === correctIdx) currentScore++;
+  seenWords.add(q.word);
+  localStorage.setItem('lq_seen', JSON.stringify([...seenWords]));
+
+  const card = document.getElementById('answerCard');
+  document.getElementById('answerHeader').textContent = idx === correctIdx ? '✓ 正解！' : '✗ 不正解';
+  document.getElementById('answerHeader').className = 'font-bold text-lg mb-2 ' + (idx === correctIdx ? 'text-green-400' : 'text-red-400');
+  document.getElementById('answerMeaning').textContent = q.meaning;
+  document.getElementById('answerContext').textContent = q.context;
+  document.getElementById('answerExample').textContent = q.example;
+  card.classList.remove('hidden');
+}
+
+function nextQuestion() {
+  currentIdx++;
+  if (currentIdx >= 10) showResult();
+  else renderQuestion();
+}
+
+function showResult() {
+  document.getElementById('quizScreen').classList.add('hidden');
+  document.getElementById('resultScreen').classList.remove('hidden');
+  document.getElementById('finalScore').textContent = currentScore;
+  const emojis = ['😢','😕','😐','🙂','😊','😀','🎉','🌟','🏆','🌈','🎊'];
+  document.getElementById('resultEmoji').textContent = emojis[currentScore] || '🎊';
+  const msgs = ['もう一度挑戦してみましょう！','まだまだ伸びしろあり！','なかなかよかったです！','素晴らしい！','完璧！言語の達人！'];
+  document.getElementById('resultMsg').textContent = msgs[Math.floor(currentScore / 2.5)] || msgs[4];
+  const hiKey = 'lq_hi_' + currentMode;
+  const prevHi = parseInt(localStorage.getItem(hiKey) || '0');
+  if (currentScore > prevHi) {
+    localStorage.setItem(hiKey, currentScore);
+    document.getElementById('newHiScore').classList.remove('hidden');
+  } else {
+    document.getElementById('newHiScore').classList.add('hidden');
+  }
+}
+
+function restartQuiz() { startQuiz(); }
+function backToStart() {
+  document.getElementById('resultScreen').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+  updateHiScore();
+}
+
+updateHiScore();
+</script>
+</body>
+</html>
